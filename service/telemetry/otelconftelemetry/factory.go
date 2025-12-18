@@ -77,6 +77,7 @@ func createDefaultConfig() component.Config {
 				},
 			},
 		},
+		Detectors: []string{},
 	}
 }
 

@@ -21,6 +21,11 @@ type Config struct {
 	// if they are not specified here. In order to suppress such attributes the
 	// attribute must be specified in this map with null YAML value (nil string pointer).
 	Resource map[string]*string `mapstructure:"resource,omitempty"`
+
+	// Detectors specifies resource detectors to run for automatic resource attribute detection.
+	// Supported detectors: env, host, aws, gcp, azure.
+	// If not specified, no automatic detection is performed.
+	Detectors []string `mapstructure:"detectors,omitempty"`
 }
 
 // LogsConfig defines the configurable settings for service telemetry logs.

@@ -4,6 +4,8 @@
 package resource // import "go.opentelemetry.io/collector/service/internal/resource"
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -13,7 +15,9 @@ import (
 )
 
 // New resource from telemetry configuration.
-func New(buildInfo component.BuildInfo, resourceCfg map[string]*string) *resource.Resource {
+// Detectors are run first, then user-configured attributes are merged (overriding detected values),
+// and finally default attributes (service.name, service.instance.id, service.version) are added if not present.
+func New(ctx context.Context, buildInfo component.BuildInfo, resourceCfg map[string]*string, detectorNames []string) (*resource.Resource, error) {
 	var telAttrs []attribute.KeyValue
 
 	for k, v := range resourceCfg {
@@ -40,5 +44,22 @@ func New(buildInfo component.BuildInfo, resourceCfg map[string]*string) *resourc
 		// build version.
 		telAttrs = append(telAttrs, semconv.ServiceVersionKey.String(buildInfo.Version))
 	}
-	return resource.NewWithAttributes(semconv.SchemaURL, telAttrs...)
+
+	// Build resource options
+	// The order matters: detectors run first, then attributes are merged with configured values taking precedence
+	opts := []resource.Option{
+		resource.WithSchemaURL(semconv.SchemaURL),
+	}
+
+	if len(detectorNames) > 0 {
+		detectors, err := GetDetectors(ctx, detectorNames)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts, resource.WithDetectors(detectors...))
+	}
+
+	opts = append(opts, resource.WithAttributes(telAttrs...))
+
+	return resource.New(ctx, opts...)
 }

@@ -47,4 +47,25 @@ func TestCreateResource(t *testing.T) {
 			"service.version": "0.1.0",
 		}, raw)
 	})
+	t.Run("with detectors", func(t *testing.T) {
+		cfg := createDefaultConfig().(*Config)
+		cfg.Detectors = []string{"env", "host"}
+		set := telemetry.Settings{BuildInfo: component.BuildInfo{Command: "otelcol", Version: "latest"}}
+		res, err := createResource(t.Context(), set, cfg)
+		require.NoError(t, err)
+
+		raw := res.Attributes().AsRaw()
+		assert.Contains(t, raw, "service.instance.id")
+		assert.Contains(t, raw, "service.name")
+		assert.Contains(t, raw, "service.version")
+	})
+	t.Run("with invalid detector returns error", func(t *testing.T) {
+		cfg := createDefaultConfig().(*Config)
+		cfg.Detectors = []string{"invalid-detector"}
+		set := telemetry.Settings{BuildInfo: component.BuildInfo{Command: "otelcol", Version: "latest"}}
+		_, err := createResource(t.Context(), set, cfg)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to create resource")
+		assert.Contains(t, err.Error(), "unknown detector")
+	})
 }

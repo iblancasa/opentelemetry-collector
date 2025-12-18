@@ -1,0 +1,95 @@
+# Example configuration demonstrating OpenTelemetry resource detectors
+# for automatic resource attribute detection in the collector's self-observability.
+
+# Receivers, processors, exporters, and connectors
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+
+exporters:
+  debug:
+    verbosity: detailed
+
+service:
+  # Telemetry configuration for the collector's own telemetry
+  telemetry:
+    # Resource configuration
+    resource:
+      # Static attributes can be configured here
+      service.name: my-otel-collector
+      deployment.environment: production
+      # Set a value to null to suppress auto-generated attributes
+      # service.version: null
+    
+    # Resource detectors automatically discover and add resource attributes
+    # Detectors run first, then static attributes override detected values
+    detectors:
+      - env    # Reads OTEL_RESOURCE_ATTRIBUTES and OTEL_SERVICE_NAME (enabled by default)
+      - host   # Adds host.id and other host information
+      # Uncomment cloud detectors as needed:
+      # - aws       # Combines all AWS detectors (EC2, ECS, EKS, Lambda)
+      # - aws/ec2   # AWS EC2 instance metadata
+      # - aws/ecs   # AWS ECS task metadata
+      # - aws/eks   # AWS EKS cluster metadata
+      # - aws/lambda # AWS Lambda function metadata
+      # - gcp       # Google Cloud Platform metadata
+      # - azure     # Azure VM metadata
+
+    # Metrics configuration
+    metrics:
+      level: detailed
+      address: :8888
+
+    # Logs configuration
+    logs:
+      level: info
+      development: false
+      encoding: console
+      output_paths:
+        - stderr
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+
+# Usage examples:
+#
+# 1. Using environment variables for resource attributes:
+#    export OTEL_RESOURCE_ATTRIBUTES="deployment.environment=staging,team=platform"
+#    export OTEL_SERVICE_NAME="my-service"
+#    ./otelcol --config=resource-detectors-config.yaml
+#
+# 2. AWS EC2 deployment:
+#    Configure detectors: [env, host, aws/ec2]
+#    The detector will automatically add:
+#    - cloud.provider
+#    - cloud.platform
+#    - cloud.account.id
+#    - cloud.region
+#    - cloud.availability_zone
+#    - host.id
+#    - host.image.id
+#    - host.type
+#
+# 3. Override detected attributes:
+#    If a detector sets service.name=detected-name, but you configure
+#    resource.service.name=my-custom-name, your configured value takes precedence.
